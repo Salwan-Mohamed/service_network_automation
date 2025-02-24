@@ -1,4 +1,3 @@
----
 - name: Resolve Switch Based on Room Number and Convert Wall Point
   hosts: localhost
   gather_facts: no
@@ -7,6 +6,11 @@
     - interface_descriptions.yml
     - vlan_mapping.yml
     - wall_point_mapping.yml
+  vars:
+    room: "{{ room }}"
+    wall_point: "{{ wall_point }}"
+    device_type: "{{ device_type }}"
+    second_device_type: "{{ second_device_type | default('none') }}"
 
   tasks:
     - name: Find Switch for Given Room
@@ -33,11 +37,11 @@
     - name: Validate Device Type
       fail:
         msg: "Invalid device type '{{ device_type }}'. Valid types are: {{ vlan_mapping.keys() | list }}"
-      when: device_type is defined and device_type not in vlan_mapping
+      when: device_type not in vlan_mapping
 
     - name: Get Interface Description
       set_fact:
-        interface_description: "{{ interface_descriptions[room] }}"
+        interface_description: "{{ interface_descriptions.get(room, 'Default Description') }}"
 
     - name: Add Resolved Switch to Inventory
       add_host:
