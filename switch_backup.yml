@@ -1,0 +1,81 @@
+---
+# Playbook: switch_backup.yml
+# Description: Backup network switch configurations and commit changes to Git repository
+# For use with existing inventory "Cisco_ios_invetory" and group "switch_stack_B_A"
+
+- name: Backup Network Switch Configurations
+  hosts: switch_stack_B_A
+  gather_facts: false
+  vars:
+    backup_path: "/var/lib/awx/projects/su_network_backup/kantra/building_A"
+    git_repo: "github.com/networksu/su_network_backup.git"
+    git_branch: "main"
+    git_user: "awx-automation"
+    git_email: "awx-automation@example.com"
+
+  tasks:
+    - name: Create backup directory if it doesn't exist
+      file:
+        path: "{{ backup_path }}"
+        state: directory
+        mode: '0755'
+      delegate_to: localhost
+      run_once: true
+
+    - name: Get current date and time
+      set_fact:
+        timestamp: "{{ lookup('pipe', 'date +%Y%m%d_%H%M%S') }}"
+      delegate_to: localhost
+      run_once: true
+
+    - name: Backup Cisco IOS switch configurations
+      ios_config:
+        backup: yes
+        backup_options:
+          filename: "{{ inventory_hostname }}.cfg"
+          dir_path: "{{ backup_path }}"
+      register: backup_results
+
+    - name: Check for changes in Git repository
+      shell: |
+        cd {{ backup_path }}
+        git status --porcelain
+      register: git_status
+      delegate_to: localhost
+      run_once: true
+      changed_when: false
+
+    - name: Configure Git if changes detected
+      shell: |
+        cd {{ backup_path }}
+        git config user.name "{{ git_user }}"
+        git config user.email "{{ git_email }}"
+      delegate_to: localhost
+      run_once: true
+      when: git_status.stdout != ""
+
+    - name: Add changes to Git
+      shell: |
+        cd {{ backup_path }}
+        git add .
+      delegate_to: localhost
+      run_once: true
+      when: git_status.stdout != ""
+
+    - name: Commit changes to Git with timestamp
+      shell: |
+        cd {{ backup_path }}
+        git commit -m "Automated backup of switch configurations - {{ timestamp }}"
+      delegate_to: localhost
+      run_once: true
+      register: git_commit
+      failed_when: git_commit.rc != 0 and "nothing to commit" not in git_commit.stderr
+      when: git_status.stdout != ""
+
+    - name: Push changes to Git repository
+      shell: |
+        cd {{ backup_path }}
+        git push origin {{ git_branch }}
+      delegate_to: localhost
+      run_once: true
+      when: git_status.stdout != ""
