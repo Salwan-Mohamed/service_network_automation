@@ -7,7 +7,8 @@
   hosts: switch_stack_B_A
   gather_facts: false
   vars:
-    backup_path: "/var/lib/awx/projects/su_network_backup/kantra/building_A"
+    # Updated backup path to match the repository structure
+    backup_path: "/var/lib/awx/projects/su_network_backup/kantra/building_A/stack"
     git_repo: "github.com/networksu/su_network_backup.git"
     git_branch: "main"
     git_user: "salwan.mohamed@su.edu.eg"
@@ -58,7 +59,7 @@
         git remote add origin https://github.com/networksu/su_network_backup.git
         # Create README if the directory is empty
         if [ ! "$(ls -A | grep -v '^\.git$')" ]; then
-          echo "# Switch Configuration Backups for Building A" > README.md
+          echo "# Switch Configuration Backups for Building A - Stack" > README.md
           git add README.md
           git commit -m "Initial commit"
         fi
@@ -102,6 +103,7 @@
         git config credential.helper 'store --file=/tmp/.git-credentials'
         echo "https://{{ git_user }}:{{ git_password }}@{{ git_repo }}" > /tmp/.git-credentials
         chmod 600 /tmp/.git-credentials
+        # Make sure we're pushing to the right subdirectory in the repository
         git push --set-upstream origin {{ git_branch }}
         # Clean up credentials after use
         rm -f /tmp/.git-credentials
